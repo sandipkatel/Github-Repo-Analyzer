@@ -12,14 +12,14 @@ import {
 
 export default function GitHubCommitAnalyzer() {
   const [repoUrl, setRepoUrl] = useState(
-    "https://github.com/yurisha-bajracharya/reviso_app"
+    "https://github.com/sandipkatel/Nirogya---A-Personal-Health-Monitor"
   );
-  const [commits, setCommits] = useState([]);
+  const [commits, setCommits] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [selectedCommit, setSelectedCommit] = useState(null);
+  const [selectedCommit, setSelectedCommit] = useState<any>(null);
 
-  const parseGitHubUrl = (url) => {
+  const parseGitHubUrl = (url: string) => {
     const match = url.match(/github\.com\/([^\/]+)\/([^\/]+)/);
     if (!match) return null;
     return { owner: match[1], repo: match[2].replace(".git", "") };
@@ -50,13 +50,13 @@ export default function GitHubCommitAnalyzer() {
       const data = await response.json();
       setCommits(data);
     } catch (err) {
-      setError(err.message);
+      setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchCommitDetails = async (sha) => {
+  const fetchCommitDetails = async (sha: any) => {
     const parsed = parseGitHubUrl(repoUrl);
     if (!parsed) return;
 
@@ -72,29 +72,30 @@ export default function GitHubCommitAnalyzer() {
       const data = await response.json();
       setSelectedCommit(data);
     } catch (err) {
-      setError(err.message);
+      setError(err instanceof Error ? err.message : "An error occurred");
     }
   };
 
-  const analyzeCommitMatch = (commit) => {
+  const analyzeCommitMatch = (commit: any) => {
     if (!commit || !commit.files)
       return { match: "unknown", confidence: 0, analysis: [] };
 
     const message = commit.commit.message.toLowerCase();
     const files = commit.files;
-    const analysis = [];
+    const analysis: { file: any; changes: string; status: any; matches: any; relevance: string; }[] = [];
 
     // Extract key terms from commit message
     const terms = message.match(/\b\w+\b/g) || [];
 
     // Analyze file changes
-    files.forEach((file) => {
+    files.forEach((file: { filename: string; additions: any; deletions: any; status: any; }) => {
       const fileName = file.filename.toLowerCase();
       const fileTerms = fileName.split(/[\/\._-]/).filter((t) => t.length > 2);
 
       const matches = fileTerms.filter((term) =>
         terms.some(
-          (msgTerm) => msgTerm.includes(term) || term.includes(msgTerm)
+          (msgTerm : string) =>
+            typeof msgTerm === "string" && (msgTerm.includes(term) || term.includes(msgTerm))
         )
       );
 
@@ -118,7 +119,7 @@ export default function GitHubCommitAnalyzer() {
     return { match, confidence: Math.round(confidence), analysis };
   };
 
-  const getMatchIcon = (matchType) => {
+  const getMatchIcon = (matchType: string) => {
     switch (matchType) {
       case "good":
         return <CheckCircle className="w-5 h-5 text-green-500" />;
@@ -189,7 +190,7 @@ export default function GitHubCommitAnalyzer() {
                 Commits ({commits.length})
               </h2>
               <div className="space-y-3 max-h-96 overflow-y-auto">
-                {commits.map((commit) => (
+                {commits.map((commit: any) => (
                   <div
                     key={commit.sha}
                     onClick={() => fetchCommitDetails(commit.sha)}

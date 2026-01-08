@@ -13,12 +13,12 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Reviso - GitHub Commit Analyzer",
+  title: "GitHub Commit Analyzer",
   description: "Verify if your commit messages match actual file changes. Analyze GitHub commits with AI-powered insights to ensure commit quality and code review accuracy.",
   keywords: ["github", "commit analyzer", "code review", "git", "version control", "commit history"],
-  authors: [{ name: "Yurisha Bajracharya" }],
+  authors: [{ name: "Sandip Katel" }],
   openGraph: {
-    title: "Reviso - GitHub Commit Analyzer",
+    title: "GitHub Commit Analyzer",
     description: "Analyze GitHub commits and verify commit messages match file changes",
     type: "website",
   },
