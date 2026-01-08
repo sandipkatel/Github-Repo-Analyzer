@@ -1,87 +1,56 @@
 "use client";
 
-import React, { useState } from 'react';
-import { Search, GitCommit, FileText, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
+import React, { useState } from "react";
+import {
+  Search,
+  GitCommit,
+  FileText,
+  AlertCircle,
+  CheckCircle,
+  XCircle,
+} from "lucide-react";
 
 export default function GitHubCommitAnalyzer() {
-const [repoUrl, setRepoUrl] = useState(
+  const [repoUrl, setRepoUrl] = useState(
     "https://github.com/sandipkatel/sandipkatel"
   );
   const [commits, setCommits] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [selectedCommit, setSelectedCommit] = useState<any>(null);
-  type RateLimit = {
-    remaining: number;
-    limit: number;
-    reset: Date | null;
-  } | null;
-  const [rateLimit, setRateLimit] = useState<RateLimit>(null);
-  
-  // Get GitHub token from environment variable
-  const githubToken = process.env.NEXT_PUBLIC_GITHUB_TOKEN || '';
 
   const parseGitHubUrl = (url: string) => {
     const match = url.match(/github\.com\/([^\/]+)\/([^\/]+)/);
     if (!match) return null;
     return { owner: match[1], repo: match[2].replace(".git", "") };
   };
+
   const fetchCommits = async () => {
     setLoading(true);
-    setError('');
+    setError("");
     setCommits([]);
     setSelectedCommit(null);
 
     const parsed = parseGitHubUrl(repoUrl);
     if (!parsed) {
-      setError('Invalid GitHub URL');
+      setError("Invalid GitHub URL");
       setLoading(false);
       return;
     }
 
     try {
-      const headers: Record<string, string> = {
-        'Accept': 'application/vnd.github.v3+json',
-      };
-      
-      if (githubToken) {
-        headers['Authorization'] = `token ${githubToken}`;
-      }
-
       const response = await fetch(
-        `https://api.github.com/repos/${parsed.owner}/${parsed.repo}/commits`,
-        { headers }
+        `https://api.github.com/repos/${parsed.owner}/${parsed.repo}/commits`
       );
 
-      // Check rate limit
-      const remaining = response.headers.get('X-RateLimit-Remaining');
-      const limit = response.headers.get('X-RateLimit-Limit');
-      const reset = response.headers.get('X-RateLimit-Reset');
-      
-      if (remaining && limit) {
-        setRateLimit({
-          remaining: parseInt(remaining),
-          limit: parseInt(limit),
-          reset: reset ? new Date(parseInt(reset) * 1000) : null
-        });
-      }
-
       if (!response.ok) {
-        if (response.status === 403) {
-          const resetTime = reset ? new Date(parseInt(reset) * 1000).toLocaleTimeString() : 'unknown';
-          throw new Error(`GitHub API rate limit exceeded. Limit resets at ${resetTime}. Try adding a GitHub token for higher limits (5000/hour).`);
-        }
         throw new Error(`GitHub API error: ${response.status}`);
       }
 
       const data = await response.json();
       setCommits(data);
     } catch (err) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError(String(err));
-      }
+      setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
       setLoading(false);
     }
@@ -92,39 +61,24 @@ const [repoUrl, setRepoUrl] = useState(
     if (!parsed) return;
 
     try {
-      const headers: Record<string, string> = {
-        'Accept': 'application/vnd.github.v3+json',
-      };
-      
-      if (githubToken) {
-        headers['Authorization'] = `token ${githubToken}`;
-      }
-
       const response = await fetch(
-        `https://api.github.com/repos/${parsed.owner}/${parsed.repo}/commits/${sha}`,
-        { headers }
+        `https://api.github.com/repos/${parsed.owner}/${parsed.repo}/commits/${sha}`
       );
 
       if (!response.ok) {
-        if (response.status === 403) {
-          throw new Error('Rate limit exceeded. Please add a GitHub token or wait for reset.');
-        }
         throw new Error(`Failed to fetch commit details: ${response.status}`);
       }
 
       const data = await response.json();
       setSelectedCommit(data);
     } catch (err) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError(String(err));
-      }
+      setError(err instanceof Error ? err.message : "An error occurred");
     }
   };
 
   const analyzeCommitMatch = (commit: any) => {
-    if (!commit || !commit.files) return { match: 'unknown', confidence: 0, analysis: [] };
+    if (!commit || !commit.files)
+      return { match: "unknown", confidence: 0, analysis: [] };
 
     const message = commit.commit.message.toLowerCase();
     const files = commit.files;
@@ -132,19 +86,17 @@ const [repoUrl, setRepoUrl] = useState(
 
     // Extract key terms from commit message
     const terms = message.match(/\b\w+\b/g) || [];
-    
+
     // Analyze file changes
     files.forEach((file: { filename: string; additions: any; deletions: any; status: any; }) => {
       const fileName = file.filename.toLowerCase();
-      const fileTerms = fileName.split(/[\/\._-]/).filter(t => t.length > 2);
+      const fileTerms = fileName.split(/[\/\._-]/).filter((t) => t.length > 2);
 
-      const matches = fileTerms.filter(term =>
-        terms.some((msgTerm: string) => {
-          if (typeof msgTerm === 'string') {
-            return msgTerm.includes(term) || term.includes(msgTerm);
-          }
-          return false;
-        })
+      const matches = fileTerms.filter((term) =>
+        terms.some(
+          (msgTerm : string) =>
+            typeof msgTerm === "string" && (msgTerm.includes(term) || term.includes(msgTerm))
+        )
       );
 
       analysis.push({
@@ -152,28 +104,28 @@ const [repoUrl, setRepoUrl] = useState(
         changes: `+${file.additions} -${file.deletions}`,
         status: file.status,
         matches: matches.length,
-        relevance: matches.length > 0 ? 'high' : 'low'
+        relevance: matches.length > 0 ? "high" : "low",
       });
     });
 
     const totalMatches = analysis.reduce((sum, a) => sum + a.matches, 0);
     const confidence = Math.min(100, (totalMatches / files.length) * 50 + 30);
 
-    let match = 'unknown';
-    if (confidence > 60) match = 'good';
-    else if (confidence > 30) match = 'partial';
-    else match = 'poor';
+    let match = "unknown";
+    if (confidence > 60) match = "good";
+    else if (confidence > 30) match = "partial";
+    else match = "poor";
 
     return { match, confidence: Math.round(confidence), analysis };
   };
 
   const getMatchIcon = (matchType: string) => {
     switch (matchType) {
-      case 'good':
+      case "good":
         return <CheckCircle className="w-5 h-5 text-green-500" />;
-      case 'partial':
+      case "partial":
         return <AlertCircle className="w-5 h-5 text-yellow-500" />;
-      case 'poor':
+      case "poor":
         return <XCircle className="w-5 h-5 text-red-500" />;
       default:
         return <AlertCircle className="w-5 h-5 text-gray-400" />;
@@ -188,11 +140,15 @@ const [repoUrl, setRepoUrl] = useState(
             <GitCommit className="w-8 h-8" />
             GitHub Commit Analyzer
           </h1>
-          <p className="text-slate-400">Verify if commit messages match actual file changes</p>
+          <p className="text-slate-400">
+            Verify if commit messages match actual file changes
+          </p>
         </div>
 
         <div className="bg-slate-800 rounded-lg p-6 mb-6 border border-slate-700">
-          <label className="block text-sm font-medium mb-2">Repository URL</label>
+          <label className="block text-sm font-medium mb-2">
+            Repository URL
+          </label>
           <div className="flex gap-3">
             <input
               type="text"
@@ -219,7 +175,6 @@ const [repoUrl, setRepoUrl] = useState(
               )}
             </button>
           </div>
-
           {error && (
             <div className="mt-3 p-3 bg-red-900/30 border border-red-700 rounded-lg text-red-300 text-sm">
               {error}
@@ -235,26 +190,32 @@ const [repoUrl, setRepoUrl] = useState(
                 Commits ({commits.length})
               </h2>
               <div className="space-y-3 max-h-96 overflow-y-auto">
-                {commits.map((commit) => (
+                {commits.map((commit: any) => (
                   <div
                     key={commit.sha}
                     onClick={() => fetchCommitDetails(commit.sha)}
                     className={`p-4 rounded-lg cursor-pointer transition-all ${
                       selectedCommit?.sha === commit.sha
-                        ? 'bg-blue-600/30 border-2 border-blue-500'
-                        : 'bg-slate-700 hover:bg-slate-600 border border-slate-600'
+                        ? "bg-blue-600/30 border-2 border-blue-500"
+                        : "bg-slate-700 hover:bg-slate-600 border border-slate-600"
                     }`}
                   >
                     <div className="flex items-start gap-3">
                       <GitCommit className="w-4 h-4 mt-1 flex-shrink-0" />
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-sm truncate">
-                          {commit.commit.message.split('\n')[0]}
+                          {commit.commit.message.split("\n")[0]}
                         </p>
                         <div className="flex items-center gap-3 mt-2 text-xs text-slate-400">
-                          <span className="truncate">{commit.commit.author.name}</span>
+                          <span className="truncate">
+                            {commit.commit.author.name}
+                          </span>
                           <span>•</span>
-                          <span>{new Date(commit.commit.author.date).toLocaleDateString()}</span>
+                          <span>
+                            {new Date(
+                              commit.commit.author.date
+                            ).toLocaleDateString()}
+                          </span>
                         </div>
                         <code className="text-xs text-slate-500 block mt-1">
                           {commit.sha.substring(0, 7)}
@@ -302,11 +263,11 @@ const [repoUrl, setRepoUrl] = useState(
                           <div className="w-full bg-slate-600 rounded-full h-2">
                             <div
                               className={`h-2 rounded-full ${
-                                analysis.match === 'good'
-                                  ? 'bg-green-500'
-                                  : analysis.match === 'partial'
-                                  ? 'bg-yellow-500'
-                                  : 'bg-red-500'
+                                analysis.match === "good"
+                                  ? "bg-green-500"
+                                  : analysis.match === "partial"
+                                  ? "bg-yellow-500"
+                                  : "bg-red-500"
                               }`}
                               style={{ width: `${analysis.confidence}%` }}
                             ></div>
@@ -322,21 +283,31 @@ const [repoUrl, setRepoUrl] = useState(
                               <div
                                 key={idx}
                                 className={`p-3 rounded-lg text-sm ${
-                                  item.relevance === 'high'
-                                    ? 'bg-green-900/30 border border-green-700'
-                                    : 'bg-slate-600 border border-slate-500'
+                                  item.relevance === "high"
+                                    ? "bg-green-900/30 border border-green-700"
+                                    : "bg-slate-600 border border-slate-500"
                                 }`}
                               >
                                 <div className="flex items-center gap-2 mb-1">
                                   <FileText className="w-4 h-4" />
-                                  <code className="text-xs flex-1 truncate">{item.file}</code>
+                                  <code className="text-xs flex-1 truncate">
+                                    {item.file}
+                                  </code>
                                 </div>
                                 <div className="flex gap-3 text-xs text-slate-400">
-                                  <span className="text-green-400">+{item.changes.split(' ')[0].substring(1)}</span>
-                                  <span className="text-red-400">{item.changes.split(' ')[1]}</span>
-                                  <span className="capitalize">{item.status}</span>
-                                  {item.relevance === 'high' && (
-                                    <span className="text-green-400">• Relevant</span>
+                                  <span className="text-green-400">
+                                    +{item.changes.split(" ")[0].substring(1)}
+                                  </span>
+                                  <span className="text-red-400">
+                                    {item.changes.split(" ")[1]}
+                                  </span>
+                                  <span className="capitalize">
+                                    {item.status}
+                                  </span>
+                                  {item.relevance === "high" && (
+                                    <span className="text-green-400">
+                                      • Relevant
+                                    </span>
                                   )}
                                 </div>
                               </div>
